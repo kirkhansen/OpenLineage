@@ -53,7 +53,7 @@ public class MetastoreTest {
     SparkSession spark =
         SparkSession.builder()
             .master("local[*]")
-            .appName("ColumnLevelLineage")
+            .appName("IcebergMetastoreTest")
             .config("spark.driver.host", LOCAL_IP)
             .config("org.jpox.autoCreateSchema", "true")
             .config("javax.jdo.option.ConnectionURL", String.format("jdbc:postgresql://localhost:%d/metastore31", mappedPort))
@@ -93,7 +93,7 @@ public class MetastoreTest {
     SparkSession spark =
             SparkSession.builder()
                     .master("local[*]")
-                    .appName("ColumnLevelLineage")
+                    .appName("NonIcebergMetastoreTest")
                     .config("spark.driver.host", LOCAL_IP)
                     .config("org.jpox.autoCreateSchema", "true")
                     .config("javax.jdo.option.ConnectionURL", String.format("jdbc:postgresql://localhost:%d/metastore23", mappedPort))
