@@ -1,4 +1,4 @@
-ARG AIRFLOW_IMAGE=apache/airflow:2.4.0-python3.7
+ARG AIRFLOW_IMAGE=apache/airflow:2.4.1-python3.7
 FROM $AIRFLOW_IMAGE AS airflow
 COPY integration/sql /app/openlineage/integration/sql
 COPY integration/common /app/openlineage/integration/common
