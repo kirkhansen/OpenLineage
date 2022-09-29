@@ -1,25 +1,14 @@
 package io.openlineage.spark.agent;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hive.HiveCatalog;
-import org.apache.iceberg.spark.SparkSchemaUtil;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.RowFactory;
+import org.apache.spark.SparkConf;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -47,31 +36,34 @@ public class MetastoreTest {
   public static void tearDown(){
     metastoreContainer.stop();
   }
+
+  private static SparkConf getCommonSparkConf(String appName, String metastore) {
+    return new SparkConf()
+            .setAppName(appName)
+            .setMaster("local[*]")
+            .set("spark.driver.host", LOCAL_IP)
+            .set("org.jpox.autoCreateSchema", "true")
+            .set("javax.jdo.option.ConnectionURL", String.format("jdbc:postgresql://localhost:%d/%s", mappedPort, metastore))
+            .set("javax.jdo.option.ConnectionDriverName", "org.postgresql.Driver")
+            .set("javax.jdo.option.ConnectionUserName", "hiveuser")
+            .set("javax.jdo.option.ConnectionPassword", "password")
+            .set("spark.sql.warehouse.dir", "gs://gidasttn-dev-bucket/warehouse")
+            .set("spark.hadoop.google.cloud.project.id", "gidasttn-dev")
+            .set("spark.hadoop.google.cloud.auth.service.account.enable", "true")
+            .set("spark.hadoop.google.cloud.auth.service.account.json.keyfile", "/home/tomasznazarewicz/Downloads/gidasttn-dev-f70fa4f71525.json");
+  }
   @Disabled
   @Test
   void IcebergTablesTest() {
     SparkSession spark =
         SparkSession.builder()
-            .master("local[*]")
-            .appName("IcebergMetastoreTest")
-            .config("spark.driver.host", LOCAL_IP)
-            .config("org.jpox.autoCreateSchema", "true")
-            .config("javax.jdo.option.ConnectionURL", String.format("jdbc:postgresql://localhost:%d/metastore31", mappedPort))
-            .config("javax.jdo.option.ConnectionDriverName", "org.postgresql.Driver")
-            .config("javax.jdo.option.ConnectionUserName", "hiveuser")
-            .config("javax.jdo.option.ConnectionPassword", "password")
+            .config(getCommonSparkConf("IcebergMetastoreTest", "metastore31"))
             .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkCatalog")
             .config("spark.sql.catalog.spark_catalog.type", "hive")
-            .config("spark.sql.warehouse.dir", "gs://gidasttn-dev-bucket/warehouse")
-            .config("spark.hadoop.google.cloud.project.id", "gidasttn-dev")
-            .config("spark.hadoop.google.cloud.auth.service.account.enable","true")
-            .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile","/home/tomasznazarewicz/Downloads/gidasttn-dev-f70fa4f71525.json")
-            .config(
-                "spark.sql.extensions",
-                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config("spark.driver.extraJavaOptions", "-Dderby.system.home=/tmp/col_v2/derby")
+            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
             .enableHiveSupport()
             .getOrCreate();
+    
     HiveCatalog catalog = new HiveCatalog();
     catalog.setConf(spark.sparkContext().hadoopConfiguration());
     spark.sql("create database if not exists iceberg_test");
@@ -90,22 +82,10 @@ public class MetastoreTest {
   @Disabled
   @Test
   void NonIcebergTablesTest() {
-    SparkSession spark =
-            SparkSession.builder()
-                    .master("local[*]")
-                    .appName("NonIcebergMetastoreTest")
-                    .config("spark.driver.host", LOCAL_IP)
-                    .config("org.jpox.autoCreateSchema", "true")
-                    .config("javax.jdo.option.ConnectionURL", String.format("jdbc:postgresql://localhost:%d/metastore23", mappedPort))
-                    .config("javax.jdo.option.ConnectionDriverName", "org.postgresql.Driver")
-                    .config("javax.jdo.option.ConnectionUserName", "hiveuser")
-                    .config("javax.jdo.option.ConnectionPassword", "password")
-                    .config("spark.sql.warehouse.dir", "gs://gidasttn-dev-bucket/warehouse")
-                    .config("spark.hadoop.google.cloud.project.id", "gidasttn-dev")
-                    .config("spark.hadoop.google.cloud.auth.service.account.enable","true")
-                    .config("spark.hadoop.google.cloud.auth.service.account.json.keyfile","/home/tomasznazarewicz/Downloads/gidasttn-dev-f70fa4f71525.json")
-                    .enableHiveSupport()
-                    .getOrCreate();
+    SparkSession spark = SparkSession.builder()
+      .config(getCommonSparkConf("NonIcebergMetastoreTest", "metastore23"))
+      .enableHiveSupport()
+      .getOrCreate();
     
     spark.sql("create database if not exists no_iceberg_test");
     spark.sql("drop table if exists test_table");
