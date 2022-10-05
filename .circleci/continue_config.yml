@@ -422,7 +422,7 @@ jobs:
           sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
           sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac
       - run: (cd ./../../client/java/ && ./gradlew --no-daemon --stacktrace publishToMavenLocal)
-      - run: ./gradlew --no-daemon app:integrationTest -Pspark.version=<< parameters.spark-version >> --tests "io.openlineage.spark.agent.SparkContainerIntegrationTest.testPysparkWordCountWithCliArgs"
+      - run: ./gradlew --no-daemon app:integrationTest -x test -Pspark.version=<< parameters.spark-version >> --tests "io.openlineage.spark.agent.MetastoreTest" 
       - run:
           when: on_fail
           command: cat build/test-results/integrationTest/TEST-*.xml
