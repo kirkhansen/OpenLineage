@@ -2,21 +2,18 @@ package io.openlineage.spark.agent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.SparkSession;
-import org.json4s.jackson.Json;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.util.Map;
 
 @Slf4j
 @Tag("integration-test")
@@ -52,7 +49,7 @@ public class MetastoreTest {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
-    
+
     return new SparkConf()
         .setAppName(appName)
         .setMaster("local[*]")
@@ -72,35 +69,36 @@ public class MetastoreTest {
         .set("fs.gs.auth.service.account.email", m.get("client_email"));
   }
 
-//  @Disabled
-//  @Test
-//  void IcebergTablesTest() {
-//    SparkSession spark =
-//        SparkSession.builder()
-//            .config(getCommonSparkConf("IcebergMetastoreTest", "metastore31"))
-//            .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkCatalog")
-//            .config("spark.sql.catalog.spark_catalog.type", "hive")
-//            .config(
-//                "spark.sql.extensions",
-//                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-//            .enableHiveSupport()
-//            .getOrCreate();
-//
-//    HiveCatalog catalog = new HiveCatalog();
-//    catalog.setConf(spark.sparkContext().hadoopConfiguration());
-//    spark.sql("create database if not exists iceberg_test");
-//    spark.sql("use iceberg_test");
-//    spark.sql("drop table if exists iceberg_test.test_table");
-//    spark.sql(
-//        "create external table iceberg_test.test_table (id int, value string) USING iceberg location 'gs://gidasttn-dev-bucket/warehouse/iceberg_test.db/test_table'");
-//    spark.sql("show schemas");
-//    spark.sql("show tables");
-//    spark.sql("select * from iceberg_test.test_table").show();
-//    spark.close();
-//
-//    List<TableIdentifier> tables = catalog.listTables(Namespace.of("iceberg_test"));
-//    Table table1 = catalog.loadTable(tables.get(0));
-//  }
+  //  @Disabled
+  //  @Test
+  //  void IcebergTablesTest() {
+  //    SparkSession spark =
+  //        SparkSession.builder()
+  //            .config(getCommonSparkConf("IcebergMetastoreTest", "metastore31"))
+  //            .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkCatalog")
+  //            .config("spark.sql.catalog.spark_catalog.type", "hive")
+  //            .config(
+  //                "spark.sql.extensions",
+  //                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+  //            .enableHiveSupport()
+  //            .getOrCreate();
+  //
+  //    HiveCatalog catalog = new HiveCatalog();
+  //    catalog.setConf(spark.sparkContext().hadoopConfiguration());
+  //    spark.sql("create database if not exists iceberg_test");
+  //    spark.sql("use iceberg_test");
+  //    spark.sql("drop table if exists iceberg_test.test_table");
+  //    spark.sql(
+  //        "create external table iceberg_test.test_table (id int, value string) USING iceberg
+  // location 'gs://gidasttn-dev-bucket/warehouse/iceberg_test.db/test_table'");
+  //    spark.sql("show schemas");
+  //    spark.sql("show tables");
+  //    spark.sql("select * from iceberg_test.test_table").show();
+  //    spark.close();
+  //
+  //    List<TableIdentifier> tables = catalog.listTables(Namespace.of("iceberg_test"));
+  //    Table table1 = catalog.loadTable(tables.get(0));
+  //  }
 
   @Test
   void NonIcebergTablesTest() {
