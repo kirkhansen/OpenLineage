@@ -414,7 +414,7 @@ jobs:
       - *checkout_project_root
       - gcp-cli/install
       - gcp-cli/initialize
-      - run: gsutil mb gs://ol-integration-test-integration-spark-bucket -p ${GOOGLE_PROJECT_ID}
+      - run: gsutil mb -p ${GOOGLE_PROJECT_ID} gs://ol-integration-test-integration-spark-bucket 
 
   integration-test-integration-flink:
     parameters:
