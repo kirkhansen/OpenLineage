@@ -113,7 +113,7 @@ public class MetastoreTest {
     spark.sql("create database if not exists no_iceberg_test");
     spark.sql("drop table if exists test_table");
     spark.sql(
-        "create external table no_iceberg_test.test_table (id int, value string) location 'gs://gidasttn-dev-bucket/warehouse/no_iceberg_test.db/test_table'");
+        "create external table no_iceberg_test.test_table (id int, value string) location 'gs://openlineage-ci-testing/warehouse/no_iceberg_test.db/test_table'");
     spark.sql("show schemas");
     spark.sql("show tables");
     spark.sql("select * from no_iceberg_test.test_table").show();
