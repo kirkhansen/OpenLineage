@@ -42,6 +42,8 @@ public class MetastoreTest {
 
   private static SparkConf getCommonSparkConf(String appName, String metastore) {
     String json = System.getenv("GCLOUD_SERVICE_KEY");
+//    String bucket = System.getenv("GCLOUD_BUCKET_NAME");
+    String projectId = System.getenv("GOOGLE_PROJECT_ID");
     ObjectMapper objectMapper = new ObjectMapper();
     Map<String, String> m;
     try {
@@ -61,8 +63,8 @@ public class MetastoreTest {
         .set("javax.jdo.option.ConnectionDriverName", "org.postgresql.Driver")
         .set("javax.jdo.option.ConnectionUserName", "hiveuser")
         .set("javax.jdo.option.ConnectionPassword", "password")
-        .set("spark.sql.warehouse.dir", "gs://gidasttn-dev-bucket/warehouse")
-        .set("spark.hadoop.google.cloud.project.id", "gidasttn-dev")
+        .set("spark.sql.warehouse.dir", "gs://openlineage-ci-testing/warehouse")
+        .set("spark.hadoop.google.cloud.project.id", projectId)
         .set("spark.hadoop.google.cloud.auth.service.account.enable", "true")
         .set("fs.gs.auth.service.account.private.key.id", m.get("private_key_id"))
         .set("fs.gs.auth.service.account.private.key", m.get("private_key"))

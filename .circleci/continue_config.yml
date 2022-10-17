@@ -414,7 +414,7 @@ jobs:
       - *checkout_project_root
       - gcp-cli/install
       - gcp-cli/initialize
-      - run: gsutil mb -p ${GOOGLE_PROJECT_ID} gs://ol-integration-test-integration-spark-bucket 
+      - run: ./gradlew --no-daemon app:integrationTest -x test -Pspark.version=<< parameters.spark-version >> --tests "io.openlineage.spark.agent.MetastoreTest"
 
   integration-test-integration-flink:
     parameters:
