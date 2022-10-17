@@ -414,7 +414,7 @@ jobs:
       - *checkout_project_root
       - gcp-cli/install
       - gcp-cli/initialize
-      - run: ./gradlew --info --no-daemon app:integrationTest -x test -Pspark.version=<< parameters.spark-version >> --tests "io.openlineage.spark.agent.MetastoreTest"
+      - run: ./gradlew --info --no-daemon app:integrationTest -x test --tests "io.openlineage.spark.agent.MetastoreTest"
 
   integration-test-integration-flink:
     parameters:
