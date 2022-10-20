@@ -18,7 +18,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Slf4j
 @Tag("integration-test")
 @Testcontainers
-public class MetastoreTest {
+public class MetastoreHive2Test {
   private static final String LOCAL_IP = "127.0.0.1";
   private static final int ORIGINAL_PORT = 5432;
   private static Network network = Network.newNetwork();
@@ -51,7 +51,6 @@ public class MetastoreTest {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
-
     return new SparkConf()
         .setAppName(appName)
         .setMaster("local[*]")
