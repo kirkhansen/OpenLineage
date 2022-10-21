@@ -85,6 +85,8 @@ public class IcebergHandler implements CatalogHandler {
     log.info(catalogConf.get(TYPE));
 
     String warehouse = catalogConf.get(CatalogProperties.WAREHOUSE_LOCATION);
+    log.info("WAREHOUSE " + warehouse + "; AND IDENTIFIER " + identifier.toString());
+    
     DatasetIdentifier di = PathUtils.fromPath(new Path(warehouse, identifier.toString()));
 
     if (catalogConf.get(TYPE).equals("hive")) {
