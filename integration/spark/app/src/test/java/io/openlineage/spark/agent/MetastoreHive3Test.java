@@ -1,5 +1,8 @@
 package io.openlineage.spark.agent;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.spark.sql.Dataset;
@@ -14,66 +17,70 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 @Slf4j
 @Tag("integration-test")
 @Testcontainers
 public class MetastoreHive3Test {
-    private static final String VERSION = System.getProperty("spark.version");
-    private static final String database = "hive3";
-    private static final String table = "test";
-    private static final String BASE_PATH = "gs://gidasttn-dev-bucket/warehouse/" + VERSION + "/";
-//    private static final String BASE_PATH = "gs://openlineage-ci-testing/warehouse/" + VERSION + "/";
-    private static Network network = Network.newNetwork();
-    private static SparkSession spark;
-    private static FileSystem fs;
-    @Container
-    private static PostgreSQLContainer metastoreContainer =
-            SparkContainerUtils.makeMetastoreContainer(network);
+  private static final String VERSION = System.getProperty("spark.version");
+  private static final String database = "hive3";
+  private static final String table = "test";
+  private static final String BASE_PATH = "gs://gidasttn-dev-bucket/warehouse/" + VERSION + "/";
+  //    private static final String BASE_PATH = "gs://openlineage-ci-testing/warehouse/" + VERSION +
+  // "/";
+  private static Network network = Network.newNetwork();
+  private static SparkSession spark;
+  private static FileSystem fs;
 
-    private static int mappedPort;
+  @Container
+  private static PostgreSQLContainer metastoreContainer =
+      SparkContainerUtils.makeMetastoreContainer(network);
 
-    @BeforeAll
-    public static void setup() {
-        metastoreContainer.start();
-        mappedPort = metastoreContainer.getMappedPort(MetastoreTestUtils.POSTGRES_PORT);
-        spark = SparkSession.builder()
-                .config(MetastoreTestUtils.getCommonSparkConf("MetastoreHive3Test", "metastore31", metastoreContainer.getMappedPort(MetastoreTestUtils.POSTGRES_PORT), true))
-                .enableHiveSupport()
-                .getOrCreate();
-        fs = MetastoreTestUtils.getFileSystem(spark);
+  private static int mappedPort;
 
-        MetastoreTestUtils.removeBaseDir(BASE_PATH, fs);
-//        MetastoreTestUtils.createSampleFiles(spark, BASE_PATH, database, table, true);
-        executeSql("DROP TABLE IF EXISTS %s.%s", database, table);
-        executeSql("DROP DATABASE IF EXISTS %s", database);
-    }
+  @BeforeAll
+  public static void setup() {
+    metastoreContainer.start();
+    mappedPort = metastoreContainer.getMappedPort(MetastoreTestUtils.POSTGRES_PORT);
+    spark =
+        SparkSession.builder()
+            .config(
+                MetastoreTestUtils.getCommonSparkConf(
+                    "MetastoreHive3Test",
+                    "metastore31",
+                    metastoreContainer.getMappedPort(MetastoreTestUtils.POSTGRES_PORT),
+                    true))
+            .enableHiveSupport()
+            .getOrCreate();
+    fs = MetastoreTestUtils.getFileSystem(spark);
 
-     @AfterAll
-    public static void tearDown() {
-        metastoreContainer.stop();
-        MetastoreTestUtils.removeBaseDir(BASE_PATH, fs);
-        spark.close();
-        
-    }
-    
-      @Test
-      void IcebergTablesTest() {
-        executeSql("create database if not exists %s", database);
-        executeSql("drop table if exists %s.%s", database, table);
-        executeSql("create external table %s.%s (id int, value string) USING iceberg location '%s%s/%s'",
-                database, table, BASE_PATH, database, table);
-        executeSql("insert into table %s.%s VALUES (1, 'value1'), (2, 'value2')", database, table);
-        Dataset<Row> rowDataset = executeSql(String.format("select * from %s.%s", database, table));
-        List<Row> rows = rowDataset.collectAsList();
-        assertThat(rows.size()).isEqualTo(2);
-        assertThat(rows.get(0).get(0)).isEqualTo(1);
-      }
+    MetastoreTestUtils.removeBaseDir(BASE_PATH, fs);
+    //        MetastoreTestUtils.createSampleFiles(spark, BASE_PATH, database, table, true);
+    executeSql("DROP TABLE IF EXISTS %s.%s", database, table);
+    executeSql("DROP DATABASE IF EXISTS %s", database);
+  }
 
-    public static Dataset<Row> executeSql(String query, String... params) {
-        return spark.sql(String.format(query, params));
-    }
+  @AfterAll
+  public static void tearDown() {
+    metastoreContainer.stop();
+    MetastoreTestUtils.removeBaseDir(BASE_PATH, fs);
+    spark.close();
+  }
+
+  @Test
+  void IcebergTablesTest() {
+    executeSql("create database if not exists %s", database);
+    executeSql("drop table if exists %s.%s", database, table);
+    executeSql(
+        "create external table %s.%s (id int, value string) USING iceberg location '%s%s/%s'",
+        database, table, BASE_PATH, database, table);
+    executeSql("insert into table %s.%s VALUES (1, 'value1'), (2, 'value2')", database, table);
+    Dataset<Row> rowDataset = executeSql(String.format("select * from %s.%s", database, table));
+    List<Row> rows = rowDataset.collectAsList();
+    assertThat(rows.size()).isEqualTo(2);
+    assertThat(rows.get(0).get(0)).isEqualTo(1);
+  }
+
+  public static Dataset<Row> executeSql(String query, String... params) {
+    return spark.sql(String.format(query, params));
+  }
 }
