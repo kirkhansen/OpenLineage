@@ -71,7 +71,7 @@ public class MetastoreTestUtils {
         Map<String, String> gcsProperties;
         try {
             gcsProperties = objectMapper.readValue(json, Map.class);
-        } catch (JsonProcessingException e) {
+        } catch (IOException e) {
             throw new RuntimeException("Couldn't parse properties from GCLOUD_KEY", e);
         }
         return gcsProperties;

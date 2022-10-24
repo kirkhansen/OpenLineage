@@ -73,7 +73,6 @@ public class CreateReplaceDatasetBuilder
     } else if (PlanUtils.safeIsInstanceOf(x, CREATE_V2_TABLE)) {
       CreateV2Table command = (CreateV2Table) x;
       tableCatalog = command.catalog();
-      log.info("CATALOG: " + tableCatalog.toString());
       tableProperties = ScalaConversionUtils.<String, String>fromMap(command.properties());
       identifier = command.tableName();
       schema = command.tableSchema();
@@ -89,9 +88,7 @@ public class CreateReplaceDatasetBuilder
           OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange.OVERWRITE;
     } else {
       ReplaceTableAsSelect command = (ReplaceTableAsSelect) x;
-      
       tableCatalog = command.catalog();
-      log.info("CATALOG: " + tableCatalog);
       tableProperties = ScalaConversionUtils.<String, String>fromMap(command.properties());
       identifier = command.tableName();
       schema = command.tableSchema();
