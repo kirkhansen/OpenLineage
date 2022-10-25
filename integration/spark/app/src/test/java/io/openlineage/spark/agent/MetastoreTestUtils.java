@@ -89,8 +89,8 @@ public class MetastoreTestUtils {
     }
   }
 
-  public static String getTableLocation(String database, String table){
-    return String.format("%s/%s/%s" ,BASE_PATH , database, table);
+  public static String getTableLocation(String database, String table) {
+    return String.format("%s/%s/%s", BASE_PATH, database, table);
   }
 
   public static FileSystem getFileSystem(SparkSession spark) {
