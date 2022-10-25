@@ -12,9 +12,7 @@ import org.apache.spark.sql.SparkSession;
 public class MetastoreTestUtils {
   private static final String LOCAL_IP = "127.0.0.1";
   private static final String VERSION = System.getProperty("spark.version");
-  private static final String BASE_PATH = "gs://gidasttn-dev-bucket/warehouse/" + VERSION + "/";
-  //    private static final String BASE_PATH = "gs://openlineage-ci-testing/warehouse/" + VERSION +
-  // "/";
+  private static final String BASE_PATH = "gs://openlineage-ci-testing/warehouse/" + VERSION;
   private static final String GCLOUD_KEY = "GCLOUD_SERVICE_KEY";
   private static final Map<String, String> GOOGLE_SA_PROPERTIES = parseGoogleSAProperties();
 
