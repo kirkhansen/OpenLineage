@@ -2,22 +2,12 @@ package io.openlineage.spark.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.catalyst.expressions.GenericRow;
-import org.apache.spark.sql.types.IntegerType$;
-import org.apache.spark.sql.types.Metadata;
-import org.apache.spark.sql.types.StructField;
-import org.apache.spark.sql.types.StructType;
-import scala.collection.immutable.HashMap;
 
 public class MetastoreTestUtils {
   private static final String LOCAL_IP = "127.0.0.1";
@@ -26,14 +16,12 @@ public class MetastoreTestUtils {
   //    private static final String BASE_PATH = "gs://openlineage-ci-testing/warehouse/" + VERSION +
   // "/";
   private static final String GCLOUD_KEY = "GCLOUD_SERVICE_KEY";
-  private static final String PROJECT_ID = "GOOGLE_PROJECT_ID";
   private static final Map<String, String> GOOGLE_SA_PROPERTIES = parseGoogleSAProperties();
 
   public static final int POSTGRES_PORT = 5432;
 
   public static SparkConf getCommonSparkConf(
       String appName, String metastoreName, int mappedPort, Boolean isIceberg) {
-    String projectId = System.getenv(PROJECT_ID);
     SparkConf conf =
         new SparkConf()
             .setAppName(appName + VERSION)
@@ -47,7 +35,7 @@ public class MetastoreTestUtils {
             .set("javax.jdo.option.ConnectionUserName", "hiveuser")
             .set("javax.jdo.option.ConnectionPassword", "password")
             .set("spark.sql.warehouse.dir", BASE_PATH)
-            .set("spark.hadoop.google.cloud.project.id", projectId)
+            .set("spark.hadoop.google.cloud.project.id", GOOGLE_SA_PROPERTIES.get("project_id"))
             .set("spark.hadoop.google.cloud.auth.service.account.enable", "true")
             .set(
                 "fs.gs.auth.service.account.private.key.id",
@@ -90,15 +78,19 @@ public class MetastoreTestUtils {
     return conf;
   }
 
-  public static void removeBaseDir(String pathString, FileSystem fs) {
+  public static void removeDatabaseFiles(String database, FileSystem fs) {
     try {
-      Path path = new Path(pathString);
+      Path path = new Path(BASE_PATH, database);
       if (fs.exists(path)) {
         fs.delete(path, true);
       }
     } catch (IOException e) {
-      throw new RuntimeException("Couldn't remove directory " + pathString, e);
+      throw new RuntimeException("Couldn't remove directory " + database, e);
     }
+  }
+
+  public static String getTableLocation(String database, String table){
+    return String.format("%s/%s/%s" ,BASE_PATH , database, table);
   }
 
   public static FileSystem getFileSystem(SparkSession spark) {
@@ -107,26 +99,5 @@ public class MetastoreTestUtils {
     } catch (IOException e) {
       throw new RuntimeException("Couldn't get file system", e);
     }
-  }
-
-  public static void createSampleFiles(
-      SparkSession spark, String basePath, String database, String table, Boolean isIceberg) {
-    StructType structTypeSchema =
-        new StructType(
-            new StructField[] {
-              new StructField("id", IntegerType$.MODULE$, false, new Metadata(new HashMap<>())),
-              new StructField("value", IntegerType$.MODULE$, false, new Metadata(new HashMap<>()))
-            });
-    List<Row> rows =
-        Arrays.asList(new GenericRow(new Object[] {1, 2}), new GenericRow(new Object[] {3, 4}));
-    Dataset<Row> dataFrame = spark.createDataFrame(rows, structTypeSchema);
-    String pathTemplate;
-    if (isIceberg) {
-      pathTemplate = "%s%s/%s/data";
-    } else {
-      pathTemplate = "%s%s/%s";
-    }
-
-    dataFrame.write().parquet(String.format(pathTemplate, basePath, database, table));
   }
 }

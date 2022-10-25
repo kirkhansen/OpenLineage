@@ -12,6 +12,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -20,13 +21,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Slf4j
 @Tag("integration-test")
 @Testcontainers
+@EnabledIfSystemProperty(named = "spark.version", matches = "(3.*)")
 public class MetastoreHive2Test {
   private static final String VERSION = System.getProperty("spark.version");
   private static final String database = "hive2";
   private static final String table = "test";
-  private static final String BASE_PATH = "gs://gidasttn-dev-bucket/warehouse/" + VERSION + "/";
-  //    private static final String BASE_PATH = "gs://openlineage-ci-testing/warehouse/" + VERSION +
-  // "/";
   private static Network network = Network.newNetwork();
   private static SparkSession spark;
   private static FileSystem fs;
@@ -53,8 +52,7 @@ public class MetastoreHive2Test {
             .getOrCreate();
     fs = MetastoreTestUtils.getFileSystem(spark);
 
-    MetastoreTestUtils.removeBaseDir(BASE_PATH, fs);
-    //    MetastoreTestUtils.createSampleFiles(spark, BASE_PATH, database, table, true);
+    MetastoreTestUtils.removeDatabaseFiles(database, fs);
     executeSql("DROP TABLE IF EXISTS %s.%s", database, table);
     executeSql("DROP DATABASE IF EXISTS %s", database);
   }
@@ -62,7 +60,7 @@ public class MetastoreHive2Test {
   @AfterAll
   public static void tearDown() {
     metastoreContainer.stop();
-    MetastoreTestUtils.removeBaseDir(BASE_PATH, fs);
+    MetastoreTestUtils.removeDatabaseFiles(database, fs);
     spark.close();
   }
 
@@ -71,8 +69,8 @@ public class MetastoreHive2Test {
     executeSql("create database if not exists %s", database);
     executeSql("drop table if exists %s.%s", database, table);
     executeSql(
-        "create external table %s.%s (id int, value string) location '%s%s/%s'",
-        database, table, BASE_PATH, database, table);
+        "create external table %s.%s (id int, value string) location '%s'",
+        database, table, MetastoreTestUtils.getTableLocation(database, table));
     executeSql("insert into table %s.%s VALUES (1, 'value1'), (2, 'value2')", database, table);
     Dataset<Row> rowDataset = executeSql(String.format("select * from %s.%s", database, table));
     List<Row> rows = rowDataset.collectAsList();
