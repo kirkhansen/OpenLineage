@@ -1,4 +1,8 @@
 package io.openlineage.spark.agent;
+/*
+/* Copyright 2018-2022 contributors to the OpenLineage project
+/* SPDX-License-Identifier: Apache-2.0
+*/
 
 import static org.assertj.core.api.Assertions.assertThat;
 
