@@ -23,7 +23,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 @EnabledIfSystemProperty(named = "spark.version", matches = "(3.*)")
 public class MetastoreHive3Test {
-  private static final String VERSION = System.getProperty("spark.version");
   private static final String database = "hive3";
   private static final String table = "test";
   private static Network network = Network.newNetwork();
