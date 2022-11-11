@@ -16,8 +16,32 @@
         "facets": {
             "airflow_runArgs": {
               "externalTrigger": false
-            }
-        }
+            },
+			"airflow_taskRun": {
+				"operator": "***.providers.postgres.operators.postgres.PostgresOperator",
+				"taskInfo": {
+					"autocommit": false,
+					"dag": {
+						"dag_id": "postgres_orders_popular_day_of_week",
+						"schedule_interval": "@once"
+					},
+					"dag_run": {
+						"conf": {},
+						"creating_job_id": 1,
+						"dag_id": "postgres_orders_popular_day_of_week",
+						"external_trigger": false,
+						"run_type": "scheduled"
+					},
+					"downstream_task_ids": "{'postgres_insert'}",
+					"inlets": [],
+					"outlets": [],
+					"owner": "datascience",
+					"sql": "\n    CREATE TABLE IF NOT EXISTS popular_orders_day_of_week (\n      order_day_of_week VARCHAR(64) NOT NULL,\n      order_placed_on   TIMESTAMP NOT NULL,\n      orders_placed     INTEGER NOT NULL\n    );",
+					"task_id": "postgres_if_not_exists"
+				},
+				"tryNumber": 1
+			}
+		}
     }
 },
 {
