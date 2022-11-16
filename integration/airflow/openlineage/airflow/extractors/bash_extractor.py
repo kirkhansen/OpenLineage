@@ -34,7 +34,7 @@ class BashExtractor(BaseExtractor):
             }
 
         return TaskMetadata(
-            name=f"{self.operator.dag_id}.{self.operator.task_id}",
+            name=f"{self.operator.dag_id}.{self.operator.wtask_id}",
             job_facets=job_facet,
             run_facets={
 
