@@ -5,7 +5,8 @@ import uuid
 from datetime import datetime
 from typing import Iterable, Optional
 
-from dagster import DagsterInstance, EventLogRecord, EventRecordsFilter  # type: ignore
+from dagster import DagsterInstance, EventLogRecord, EventRecordsFilter, RunShardedEventsCursor
+from dagster._core.events import DagsterEventType  # type: ignore
 
 
 NOMINAL_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -25,23 +26,29 @@ def make_step_job_name(pipeline_name: str, step_key: str) -> str:
 
 def get_event_log_records(
         instance: DagsterInstance,
+        event_types: set[DagsterEventType],
         last_storage_id: int,
-        record_filter_limit: int
+        run_updated_after: datetime,
+        record_filter_limit: Optional[int] = None,
 ) -> Iterable[EventLogRecord]:
     """Returns a list of Dagster event log records in ascending order
     from the instance's event log storage.
     :param instance: active instance to get records from
+    :param event_type: Event type to filter out
     :param last_storage_id: storage id to use as after cursor filter
     :param record_filter_limit: maximum number of event logs to retrieve
-    :return: list of Dagster event log records
+    :return: iterable of Dagster event log records
     """
-    return instance.get_event_records(
-        EventRecordsFilter(
-            after_cursor=last_storage_id
-        ),
-        limit=record_filter_limit,
-        ascending=True,
-    )
+    for event_type in event_types:
+        for event_record in instance.get_event_records(
+            EventRecordsFilter(
+                event_type=event_type,
+                after_cursor=RunShardedEventsCursor(last_storage_id, run_updated_after),
+            ),
+            limit=record_filter_limit,
+            ascending=True,
+            ):
+            yield event_record
 
 
 def get_repository_name(

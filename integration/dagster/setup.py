@@ -10,16 +10,16 @@ from setuptools import setup, find_namespace_packages
 with open("README.md") as readme_file:
     readme = readme_file.read()
 
-__version__ = "0.20.0"
+__version__ = "1.0.0"
 
-DAGSTER_VERSION = "0.13.8"
+DAGSTER_VERSION = "1.0.0"
 
 requirements = [
     "attrs>=19.3",
     "cattrs",
     "protobuf<=3.20.0",
-    f"dagster>={DAGSTER_VERSION},<=0.14.5",
-    f"openlineage-python=={__version__}",
+    f"dagster>={DAGSTER_VERSION}",
+    #f"openlineage-python=={__version__}",
 ]
 
 extras_require = {

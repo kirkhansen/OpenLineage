@@ -3,6 +3,7 @@
 
 import logging
 from typing import Optional, Dict
+from datetime import datetime
 
 from dagster import (   # type: ignore
     DagsterEventType,
@@ -12,8 +13,8 @@ from dagster import (   # type: ignore
     SkipReason
 )
 
-from dagster.core.definitions.sensor_definition import DEFAULT_SENSOR_DAEMON_INTERVAL
-from dagster.core.events import PIPELINE_EVENTS, STEP_EVENTS
+from dagster._core.definitions.sensor_definition import DEFAULT_SENSOR_DAEMON_INTERVAL
+from dagster._core.events import PIPELINE_EVENTS, STEP_EVENTS
 
 from openlineage.dagster.adapter import OpenLineageAdapter
 from openlineage.dagster.cursor import OpenLineageCursor, RunningPipeline, RunningStep
@@ -52,14 +53,16 @@ def openlineage_sensor(
         ol_cursor = OpenLineageCursor.from_json(context.cursor) \
             if context.cursor \
             else OpenLineageCursor(after_storage_id)
+        run_updated_after = ol_cursor.run_updated_after
         last_storage_id = ol_cursor.last_storage_id
         running_pipelines = ol_cursor.running_pipelines
 
         event_log_records = get_event_log_records(
-            context.instance, last_storage_id, record_filter_limit
+            context.instance, EVENTS_TO_SENSE, last_storage_id, run_updated_after, record_filter_limit
         )
 
         raised_exception = None
+
         for record in event_log_records:
             entry = record.event_log_entry
             if entry.is_dagster_event:
@@ -100,8 +103,9 @@ def openlineage_sensor(
                     raised_exception = e
                     break
             last_storage_id = record.storage_id
+            run_updated_after = datetime.now()
 
-        _update_cursor(context, last_storage_id, running_pipelines)
+        _update_cursor(context, last_storage_id, running_pipelines, run_updated_after)
 
         if not raised_exception:
             msg = f"Last cursor: {context.cursor}"
@@ -200,18 +204,32 @@ def _handle_step_event(
 def _update_cursor(
         context: SensorEvaluationContext,
         last_storage_id: int,
-        running_pipelines: Dict[str, RunningPipeline]
+        running_pipelines: Dict[str, RunningPipeline],
+        run_updated_after: datetime,
 ):
     """Updates cursor for a given sensor evaluation context.
     :param context: sensor evaluation context
     :param last_storage_id: last process storage id
     :param running_pipelines: pipeline runs that are in progress in between sensor runs
                               for their state to be shared
+    :param run_updated_after: time last ran to help with dbs like sqlite
     :return:
     """
     context.update_cursor(
         OpenLineageCursor(
             last_storage_id=last_storage_id,
-            running_pipelines=running_pipelines
+            running_pipelines=running_pipelines,
+            run_updated_after=run_updated_after,
         ).to_json()
     )
+
+
+EVENTS_TO_SENSE = {
+   DagsterEventType.STEP_START,
+   DagsterEventType.STEP_SUCCESS,
+   DagsterEventType.STEP_FAILURE,
+   DagsterEventType.RUN_START,
+   DagsterEventType.RUN_SUCCESS,
+   DagsterEventType.RUN_FAILURE,
+   DagsterEventType.RUN_CANCELED,
+}
