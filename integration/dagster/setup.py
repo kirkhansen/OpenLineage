@@ -19,16 +19,11 @@ requirements = [
     "cattrs",
     "protobuf<=3.20.0",
     f"dagster>={DAGSTER_VERSION}",
-    #f"openlineage-python=={__version__}",
+    # f"openlineage-python=={__version__}",
 ]
 
 extras_require = {
-    "tests": [
-        "pytest",
-        "pytest-cov",
-        "flake8",
-        "mypy>=0.9.6"
-    ],
+    "tests": ["pytest", "pytest-cov", "flake8", "mypy>=0.9.6"],
 }
 
 extras_require["dev"] = extras_require["tests"]
@@ -40,7 +35,7 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     author="OpenLineage",
-    packages=find_namespace_packages(include=['openlineage.*']),
+    packages=find_namespace_packages(include=["openlineage.*"]),
     include_package_data=True,
     install_requires=requirements,
     extras_require=extras_require,

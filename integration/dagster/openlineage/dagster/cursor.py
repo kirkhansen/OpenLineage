@@ -30,14 +30,18 @@ class OpenLineageCursor:
 
     def to_json(self):
         dict_repr = attr.asdict(self)
-        dict_repr["run_updated_after"] = datetime.timestamp(dict_repr["run_updated_after"])
+        dict_repr["run_updated_after"] = datetime.timestamp(
+            dict_repr["run_updated_after"]
+        )
         return json.dumps(dict_repr)
 
     @classmethod
     def from_json(cls, json_str: str):
         attrs = json.loads(json_str)
         try:
-            attrs["run_updated_after"] = datetime.fromtimestamp(attrs["run_updated_after"])
+            attrs["run_updated_after"] = datetime.fromtimestamp(
+                attrs["run_updated_after"]
+            )
         except KeyError:
             attrs["run_updated_after"] = datetime.now()
         return cls(**attrs)

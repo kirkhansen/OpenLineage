@@ -6,8 +6,13 @@ from unittest.mock import patch
 
 from dagster import EventRecordsFilter
 
-from openlineage.dagster.utils import make_step_run_id, to_utc_iso_8601, make_step_job_name, \
-    get_repository_name, get_event_log_records
+from openlineage.dagster.utils import (
+    make_step_run_id,
+    to_utc_iso_8601,
+    make_step_job_name,
+    get_repository_name,
+    get_event_log_records,
+)
 from .conftest import make_pipeline_run_with_external_pipeline_origin
 
 
@@ -32,9 +37,7 @@ def test_get_event_log_records(mock_instance):
     record_filter_limit = 100
     get_event_log_records(mock_instance, last_storage_id, record_filter_limit)
     mock_instance.get_event_records.assert_called_once_with(
-        EventRecordsFilter(
-            after_cursor=last_storage_id
-        ),
+        EventRecordsFilter(after_cursor=last_storage_id),
         limit=record_filter_limit,
         ascending=True,
     )

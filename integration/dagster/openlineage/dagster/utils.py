@@ -5,7 +5,12 @@ import uuid
 from datetime import datetime
 from typing import Iterable, Optional
 
-from dagster import DagsterInstance, EventLogRecord, EventRecordsFilter, RunShardedEventsCursor
+from dagster import (
+    DagsterInstance,
+    EventLogRecord,
+    EventRecordsFilter,
+    RunShardedEventsCursor,
+)
 from dagster._core.events import DagsterEventType  # type: ignore
 
 
@@ -25,11 +30,11 @@ def make_step_job_name(pipeline_name: str, step_key: str) -> str:
 
 
 def get_event_log_records(
-        instance: DagsterInstance,
-        event_types: set[DagsterEventType],
-        last_storage_id: int,
-        run_updated_after: datetime,
-        record_filter_limit: Optional[int] = None,
+    instance: DagsterInstance,
+    event_types: set[DagsterEventType],
+    last_storage_id: int,
+    run_updated_after: datetime,
+    record_filter_limit: Optional[int] = None,
 ) -> Iterable[EventLogRecord]:
     """Returns a list of Dagster event log records in ascending order
     from the instance's event log storage.
@@ -47,13 +52,12 @@ def get_event_log_records(
             ),
             limit=record_filter_limit,
             ascending=True,
-            ):
+        ):
             yield event_record
 
 
 def get_repository_name(
-        instance: DagsterInstance,
-        pipeline_run_id: str
+    instance: DagsterInstance, pipeline_run_id: str
 ) -> Optional[str]:
     """Returns an optional repository name
     :param instance: active instance to get the pipeline run

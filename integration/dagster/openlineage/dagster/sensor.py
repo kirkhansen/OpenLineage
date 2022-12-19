@@ -5,12 +5,12 @@ import logging
 from typing import Optional, Dict
 from datetime import datetime
 
-from dagster import (   # type: ignore
+from dagster import (  # type: ignore
     DagsterEventType,
     sensor,
     SensorDefinition,
     SensorEvaluationContext,
-    SkipReason
+    SkipReason,
 )
 
 from dagster._core.definitions.sensor_definition import DEFAULT_SENSOR_DAEMON_INTERVAL
@@ -18,7 +18,11 @@ from dagster._core.events import PIPELINE_EVENTS, STEP_EVENTS
 
 from openlineage.dagster.adapter import OpenLineageAdapter
 from openlineage.dagster.cursor import OpenLineageCursor, RunningPipeline, RunningStep
-from openlineage.dagster.utils import make_step_run_id, get_event_log_records, get_repository_name
+from openlineage.dagster.utils import (
+    make_step_run_id,
+    get_event_log_records,
+    get_repository_name,
+)
 
 _ADAPTER = OpenLineageAdapter()
 
@@ -26,13 +30,13 @@ log = logging.getLogger(__name__)
 
 
 def openlineage_sensor(
-        name: Optional[str] = "openlineage_sensor",
-        description: Optional[str] = "OpenLineage sensor tails Dagster event logs, "
-                                     "converts Dagster events into OpenLineage events, "
-                                     "and emits them to an OpenLineage backend.",
-        minimum_interval_seconds: Optional[int] = DEFAULT_SENSOR_DAEMON_INTERVAL,
-        record_filter_limit: Optional[int] = 30,
-        after_storage_id: Optional[int] = 0
+    name: Optional[str] = "openlineage_sensor",
+    description: Optional[str] = "OpenLineage sensor tails Dagster event logs, "
+    "converts Dagster events into OpenLineage events, "
+    "and emits them to an OpenLineage backend.",
+    minimum_interval_seconds: Optional[int] = DEFAULT_SENSOR_DAEMON_INTERVAL,
+    record_filter_limit: Optional[int] = 30,
+    after_storage_id: Optional[int] = 0,
 ) -> SensorDefinition:
     """Wrapper to parameterize sensor configurations and return sensor definition.
     :param name: sensor name
@@ -42,7 +46,8 @@ def openlineage_sensor(
     :param after_storage_id: storage id to use as the initial after cursor when getting event logs
     :return: OpenLineage sensor definition
     """
-    @sensor(    # type: ignore
+
+    @sensor(  # type: ignore
         name=name,
         minimum_interval_seconds=minimum_interval_seconds,
         description=description,
@@ -50,15 +55,21 @@ def openlineage_sensor(
     def _openlineage_sensor(context: SensorEvaluationContext):
         # cursor keeps track of the last_storage_id checkpoint and running_pipelines, a map of
         # pipeline run ids to dynamically generated/extracted metadata for running pipelines
-        ol_cursor = OpenLineageCursor.from_json(context.cursor) \
-            if context.cursor \
+        ol_cursor = (
+            OpenLineageCursor.from_json(context.cursor)
+            if context.cursor
             else OpenLineageCursor(after_storage_id)
+        )
         run_updated_after = ol_cursor.run_updated_after
         last_storage_id = ol_cursor.last_storage_id
         running_pipelines = ol_cursor.running_pipelines
 
         event_log_records = get_event_log_records(
-            context.instance, EVENTS_TO_SENSE, last_storage_id, run_updated_after, record_filter_limit
+            context.instance,
+            EVENTS_TO_SENSE,
+            last_storage_id,
+            run_updated_after,
+            record_filter_limit,
         )
 
         raised_exception = None
@@ -75,9 +86,11 @@ def openlineage_sensor(
                     step_key = dagster_event.step_key
 
                     running_pipeline = running_pipelines.get(pipeline_run_id)
-                    repository_name = running_pipeline.repository_name \
-                        if running_pipeline \
+                    repository_name = (
+                        running_pipeline.repository_name
+                        if running_pipeline
                         else get_repository_name(context.instance, pipeline_run_id)
+                    )
 
                     if dagster_event_type in PIPELINE_EVENTS:
                         _handle_pipeline_event(
@@ -86,7 +99,7 @@ def openlineage_sensor(
                             pipeline_name,
                             pipeline_run_id,
                             timestamp,
-                            repository_name
+                            repository_name,
                         )
                     elif dagster_event_type in STEP_EVENTS:
                         _handle_step_event(
@@ -96,7 +109,7 @@ def openlineage_sensor(
                             pipeline_run_id,
                             timestamp,
                             step_key,
-                            repository_name
+                            repository_name,
                         )
                 except Exception as e:
                     # On failure, break and terminate evaluation
@@ -110,8 +123,10 @@ def openlineage_sensor(
         if not raised_exception:
             msg = f"Last cursor: {context.cursor}"
         else:
-            msg = f"Sensor run failed with error: {raised_exception}. " \
-                  f"Last cursor: {context.cursor}"
+            msg = (
+                f"Sensor run failed with error: {raised_exception}. "
+                f"Last cursor: {context.cursor}"
+            )
         log.info(msg)
         yield SkipReason(msg)
 
@@ -119,12 +134,12 @@ def openlineage_sensor(
 
 
 def _handle_pipeline_event(
-        running_pipelines: Dict[str, RunningPipeline],
-        dagster_event_type: DagsterEventType,
-        pipeline_name: str,
-        pipeline_run_id: str,
-        timestamp: float,
-        repository_name: Optional[str]
+    running_pipelines: Dict[str, RunningPipeline],
+    dagster_event_type: DagsterEventType,
+    pipeline_name: str,
+    pipeline_run_id: str,
+    timestamp: float,
+    repository_name: Optional[str],
 ):
     """Handles pipeline events that are of type RUN_START, RUN_SUCCESS, RUN_FAILURE,
     and RUN_CANCELED. Assumes event type is always in the order of RUN_START
@@ -140,27 +155,37 @@ def _handle_pipeline_event(
     :return:
     """
     if dagster_event_type == DagsterEventType.RUN_START:
-        _ADAPTER.start_pipeline(pipeline_name, pipeline_run_id, timestamp, repository_name)
-        running_pipelines[pipeline_run_id] = RunningPipeline(repository_name=repository_name)
+        _ADAPTER.start_pipeline(
+            pipeline_name, pipeline_run_id, timestamp, repository_name
+        )
+        running_pipelines[pipeline_run_id] = RunningPipeline(
+            repository_name=repository_name
+        )
     elif dagster_event_type == DagsterEventType.RUN_SUCCESS:
-        _ADAPTER.complete_pipeline(pipeline_name, pipeline_run_id, timestamp, repository_name)
+        _ADAPTER.complete_pipeline(
+            pipeline_name, pipeline_run_id, timestamp, repository_name
+        )
         running_pipelines.pop(pipeline_run_id, None)
     elif dagster_event_type == DagsterEventType.RUN_FAILURE:
-        _ADAPTER.fail_pipeline(pipeline_name, pipeline_run_id, timestamp, repository_name)
+        _ADAPTER.fail_pipeline(
+            pipeline_name, pipeline_run_id, timestamp, repository_name
+        )
         running_pipelines.pop(pipeline_run_id, None)
     elif dagster_event_type == DagsterEventType.RUN_CANCELED:
-        _ADAPTER.cancel_pipeline(pipeline_name, pipeline_run_id, timestamp, repository_name)
+        _ADAPTER.cancel_pipeline(
+            pipeline_name, pipeline_run_id, timestamp, repository_name
+        )
         running_pipelines.pop(pipeline_run_id, None)
 
 
 def _handle_step_event(
-        running_pipelines: Dict[str, RunningPipeline],
-        dagster_event_type: DagsterEventType,
-        pipeline_name: str,
-        pipeline_run_id: str,
-        timestamp: float,
-        step_key: str,
-        repository_name: Optional[str]
+    running_pipelines: Dict[str, RunningPipeline],
+    dagster_event_type: DagsterEventType,
+    pipeline_name: str,
+    pipeline_run_id: str,
+    timestamp: float,
+    step_key: str,
+    repository_name: Optional[str],
 ):
     """Handles step events that are of type STEP_START, STEP_SUCCESS, and STEP_FAILURE.
     Assumes event type is always in the order of STEP_START
@@ -185,27 +210,42 @@ def _handle_step_event(
 
     if dagster_event_type == DagsterEventType.STEP_START:
         _ADAPTER.start_step(
-            pipeline_name, pipeline_run_id, timestamp, step_run_id, step_key, repository_name
+            pipeline_name,
+            pipeline_run_id,
+            timestamp,
+            step_run_id,
+            step_key,
+            repository_name,
         )
         running_steps[step_key] = running_step
     elif dagster_event_type == DagsterEventType.STEP_SUCCESS:
         _ADAPTER.complete_step(
-            pipeline_name, pipeline_run_id, timestamp, step_run_id, step_key, repository_name
+            pipeline_name,
+            pipeline_run_id,
+            timestamp,
+            step_run_id,
+            step_key,
+            repository_name,
         )
         running_steps.pop(step_key, None)
     elif dagster_event_type == DagsterEventType.STEP_FAILURE:
         _ADAPTER.fail_step(
-            pipeline_name, pipeline_run_id, timestamp, step_run_id, step_key, repository_name
+            pipeline_name,
+            pipeline_run_id,
+            timestamp,
+            step_run_id,
+            step_key,
+            repository_name,
         )
         running_steps.pop(step_key, None)
     running_pipelines[pipeline_run_id] = running_pipeline
 
 
 def _update_cursor(
-        context: SensorEvaluationContext,
-        last_storage_id: int,
-        running_pipelines: Dict[str, RunningPipeline],
-        run_updated_after: datetime,
+    context: SensorEvaluationContext,
+    last_storage_id: int,
+    running_pipelines: Dict[str, RunningPipeline],
+    run_updated_after: datetime,
 ):
     """Updates cursor for a given sensor evaluation context.
     :param context: sensor evaluation context
@@ -225,11 +265,11 @@ def _update_cursor(
 
 
 EVENTS_TO_SENSE = {
-   DagsterEventType.STEP_START,
-   DagsterEventType.STEP_SUCCESS,
-   DagsterEventType.STEP_FAILURE,
-   DagsterEventType.RUN_START,
-   DagsterEventType.RUN_SUCCESS,
-   DagsterEventType.RUN_FAILURE,
-   DagsterEventType.RUN_CANCELED,
+    DagsterEventType.STEP_START,
+    DagsterEventType.STEP_SUCCESS,
+    DagsterEventType.STEP_FAILURE,
+    DagsterEventType.RUN_START,
+    DagsterEventType.RUN_SUCCESS,
+    DagsterEventType.RUN_FAILURE,
+    DagsterEventType.RUN_CANCELED,
 }
