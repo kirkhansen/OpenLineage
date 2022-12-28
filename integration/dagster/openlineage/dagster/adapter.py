@@ -33,6 +33,7 @@ class OpenLineageAdapter:
     def __init__(self):
         self._client = OpenLineageClient.from_environment()
 
+
     def start_pipeline(
         self,
         pipeline_name: str,
@@ -145,6 +146,8 @@ class OpenLineageAdapter:
         step_run_id: str,
         step_key: str,
         repository_name: Optional[str] = None,
+        input_datasets: Optional[list] = None,
+        output_datasets: Optional[list] = None,
     ):
         """Emits OpenLineage event to indicate start of Dagster step (op) execution.
         :param pipeline_name: Dagster pipeline name
@@ -163,6 +166,8 @@ class OpenLineageAdapter:
             step_run_id,
             step_key,
             repository_name,
+            input_datasets,
+            output_datasets,
         )
 
     def complete_step(
@@ -173,6 +178,8 @@ class OpenLineageAdapter:
         step_run_id: str,
         step_key: str,
         repository_name: Optional[str] = None,
+        input_datasets: Optional[list] = None,
+        output_datasets: Optional[list] = None,
     ):
         """Emits OpenLineage event to indicate completion of Dagster step (op) execution.
         :param pipeline_name: Dagster pipeline name
@@ -191,6 +198,8 @@ class OpenLineageAdapter:
             step_run_id,
             step_key,
             repository_name,
+            input_datasets,
+            output_datasets,
         )
 
     def fail_step(
@@ -201,6 +210,8 @@ class OpenLineageAdapter:
         step_run_id: str,
         step_key: str,
         repository_name: Optional[str] = None,
+        input_datasets: Optional[list] = None,
+        output_datasets: Optional[list] = None,
     ):
         """Emits OpenLineage event to indicate failure of Dagster step (op) execution.
         :param pipeline_name: Dagster pipeline name
@@ -219,6 +230,8 @@ class OpenLineageAdapter:
             step_run_id,
             step_key,
             repository_name,
+            input_datasets,
+            output_datasets,
         )
 
     def _emit_step_event(
@@ -230,6 +243,8 @@ class OpenLineageAdapter:
         step_run_id: str,
         step_key: str,
         repository_name: Optional[str],
+        input_datasets: Optional[list],
+        output_datasets: Optional[list],
     ):
         self._emit(
             RunEvent(
@@ -250,6 +265,8 @@ class OpenLineageAdapter:
                     job_name=make_step_job_name(pipeline_name, step_key),
                 ),
                 producer=_PRODUCER,
+                inputs=input_datasets,
+                outputs=output_datasets,
             )
         )
 

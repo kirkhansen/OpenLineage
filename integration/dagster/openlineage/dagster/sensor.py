@@ -3,7 +3,6 @@
 
 import logging
 from typing import Optional, Dict
-from datetime import datetime
 
 from dagster import (  # type: ignore
     DagsterEventType,
@@ -12,6 +11,7 @@ from dagster import (  # type: ignore
     SensorEvaluationContext,
     SkipReason,
 )
+from dagster._core.definitions.events import AssetKey
 
 from dagster._core.definitions.sensor_definition import DEFAULT_SENSOR_DAEMON_INTERVAL
 from dagster._core.events import PIPELINE_EVENTS, STEP_EVENTS
@@ -19,9 +19,10 @@ from dagster._core.events import PIPELINE_EVENTS, STEP_EVENTS
 from openlineage.dagster.adapter import OpenLineageAdapter
 from openlineage.dagster.cursor import OpenLineageCursor, RunningPipeline, RunningStep
 from openlineage.dagster.utils import (
+    get_asset_record_dependencies,
     make_step_run_id,
     get_event_log_records,
-    get_repository_name,
+    get_repository,
 )
 
 _ADAPTER = OpenLineageAdapter()
@@ -35,8 +36,8 @@ def openlineage_sensor(
     "converts Dagster events into OpenLineage events, "
     "and emits them to an OpenLineage backend.",
     minimum_interval_seconds: Optional[int] = DEFAULT_SENSOR_DAEMON_INTERVAL,
-    record_filter_limit: Optional[int] = 30,
-    after_storage_id: Optional[int] = 0,
+    record_filter_limit: Optional[int] = 1000,
+    after_storage_id: int = 0,
 ) -> SensorDefinition:
     """Wrapper to parameterize sensor configurations and return sensor definition.
     :param name: sensor name
@@ -67,30 +68,38 @@ def openlineage_sensor(
         event_log_records = get_event_log_records(
             context.instance,
             EVENTS_TO_SENSE,
-            last_storage_id,
             run_updated_after,
             record_filter_limit,
         )
 
         raised_exception = None
 
+
         for record in event_log_records:
             entry = record.event_log_entry
             if entry.is_dagster_event:
                 try:
-                    pipeline_name = entry.pipeline_name
+                    # Evidently can be None, but I'm not sure what that means to have a None pipeline name.
+                    pipeline_name = entry.pipeline_name or ""
                     pipeline_run_id = entry.run_id
                     timestamp = entry.timestamp
                     dagster_event = entry.get_dagster_event()
                     dagster_event_type = dagster_event.event_type
-                    step_key = dagster_event.step_key
+
+                    # Evidently can be None, but I'm not sure what that means to have a None step key
+                    step_key = dagster_event.step_handle.to_key() if dagster_event.step_handle else ""
+                    asset_key = None
+                    if dagster_event.step_handle and dagster_event.step_handle.solid_handle.path:
+                        asset_key = dagster_event.asset_key or AssetKey(dagster_event.step_handle.solid_handle.path)
 
                     running_pipeline = running_pipelines.get(pipeline_run_id)
-                    repository_name = (
-                        running_pipeline.repository_name
-                        if running_pipeline
-                        else get_repository_name(context.instance, pipeline_run_id)
-                    )
+                    if running_pipeline:
+                        repository_name = running_pipeline.repository_name
+                        repository_location = running_pipeline.repository_location
+                    else:
+                        repo = get_repository(context.instance, pipeline_run_id)
+                        repository_name = repo.name
+                        repository_location = repo.location
 
                     if dagster_event_type in PIPELINE_EVENTS:
                         _handle_pipeline_event(
@@ -100,6 +109,7 @@ def openlineage_sensor(
                             pipeline_run_id,
                             timestamp,
                             repository_name,
+                            repository_location,
                         )
                     elif dagster_event_type in STEP_EVENTS:
                         _handle_step_event(
@@ -110,23 +120,19 @@ def openlineage_sensor(
                             timestamp,
                             step_key,
                             repository_name,
+                            repository_location,
+                            asset_key,
                         )
-                except Exception as e:
-                    # On failure, break and terminate evaluation
-                    raised_exception = e
+                except Exception:
+                    log.exception("Sensor run failed with error")
+                    raised_exception = True
                     break
             last_storage_id = record.storage_id
-            run_updated_after = datetime.now()
-
-        _update_cursor(context, last_storage_id, running_pipelines, run_updated_after)
+            run_updated_after = record.timestamp
 
         if not raised_exception:
-            msg = f"Last cursor: {context.cursor}"
-        else:
-            msg = (
-                f"Sensor run failed with error: {raised_exception}. "
-                f"Last cursor: {context.cursor}"
-            )
+            _update_cursor(context, last_storage_id, running_pipelines, run_updated_after)
+        msg = f"Last cursor: {context.cursor}"
         log.info(msg)
         yield SkipReason(msg)
 
@@ -139,7 +145,8 @@ def _handle_pipeline_event(
     pipeline_name: str,
     pipeline_run_id: str,
     timestamp: float,
-    repository_name: Optional[str],
+    repository_name: str,
+    repository_location: str,
 ):
     """Handles pipeline events that are of type RUN_START, RUN_SUCCESS, RUN_FAILURE,
     and RUN_CANCELED. Assumes event type is always in the order of RUN_START
@@ -159,7 +166,7 @@ def _handle_pipeline_event(
             pipeline_name, pipeline_run_id, timestamp, repository_name
         )
         running_pipelines[pipeline_run_id] = RunningPipeline(
-            repository_name=repository_name
+            repository_name=repository_name, repository_location=repository_location
         )
     elif dagster_event_type == DagsterEventType.RUN_SUCCESS:
         _ADAPTER.complete_pipeline(
@@ -185,7 +192,9 @@ def _handle_step_event(
     pipeline_run_id: str,
     timestamp: float,
     step_key: str,
-    repository_name: Optional[str],
+    repository_name: str,
+    repository_location: str,
+    asset_key,
 ):
     """Handles step events that are of type STEP_START, STEP_SUCCESS, and STEP_FAILURE.
     Assumes event type is always in the order of STEP_START
@@ -199,13 +208,25 @@ def _handle_step_event(
     :param timestamp: Unix timestamp of Dagster event
     :param step_key: Dagster step key
     :param repository_name: Dagster repository name
+    :param repository_location: Dagster repository location
     :return:
     """
     running_pipeline = running_pipelines.get(
-        pipeline_run_id, RunningPipeline(repository_name=repository_name)
+        pipeline_run_id, RunningPipeline(repository_name=repository_name, repository_location=repository_location)
     )
     running_steps = running_pipeline.running_steps
-    running_step = running_steps.get(step_key, RunningStep(make_step_run_id()))
+
+    # Add in datasets inputs and outputs to the step
+    # TODO: figure out a better place for this query; we shouldn't run this for every STEP job
+    # this could probably move out so we can save some graphql calls
+    asset_node_lookup = get_asset_record_dependencies(repository_name=repository_name, repository_location=repository_location, pipeline_name=pipeline_name)
+    dependencies = asset_node_lookup.get(asset_key, {})
+    running_step = running_steps.get(
+            step_key,
+            RunningStep(
+                make_step_run_id(),
+                **dependencies,
+    ))
     step_run_id = running_step.step_run_id
 
     if dagster_event_type == DagsterEventType.STEP_START:
@@ -216,6 +237,8 @@ def _handle_step_event(
             step_run_id,
             step_key,
             repository_name,
+            running_step.input_datasets,
+            running_step.output_datasets,
         )
         running_steps[step_key] = running_step
     elif dagster_event_type == DagsterEventType.STEP_SUCCESS:
@@ -226,6 +249,8 @@ def _handle_step_event(
             step_run_id,
             step_key,
             repository_name,
+            running_step.input_datasets,
+            running_step.output_datasets,
         )
         running_steps.pop(step_key, None)
     elif dagster_event_type == DagsterEventType.STEP_FAILURE:
@@ -236,6 +261,8 @@ def _handle_step_event(
             step_run_id,
             step_key,
             repository_name,
+            running_step.input_datasets,
+            running_step.output_datasets,
         )
         running_steps.pop(step_key, None)
     running_pipelines[pipeline_run_id] = running_pipeline
@@ -245,7 +272,7 @@ def _update_cursor(
     context: SensorEvaluationContext,
     last_storage_id: int,
     running_pipelines: Dict[str, RunningPipeline],
-    run_updated_after: datetime,
+    run_updated_after: float,
 ):
     """Updates cursor for a given sensor evaluation context.
     :param context: sensor evaluation context
@@ -263,8 +290,8 @@ def _update_cursor(
         ).to_json()
     )
 
-
 EVENTS_TO_SENSE = {
+    DagsterEventType.STEP_INPUT,
     DagsterEventType.STEP_START,
     DagsterEventType.STEP_SUCCESS,
     DagsterEventType.STEP_FAILURE,

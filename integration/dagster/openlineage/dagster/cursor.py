@@ -3,9 +3,10 @@
 
 from datetime import datetime
 import json
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
 import attr
+import cattr
 from openlineage.client.run import InputDataset, OutputDataset
 
 
@@ -20,28 +21,18 @@ class RunningStep:
 class RunningPipeline:
     running_steps: Dict[str, RunningStep] = attr.ib(factory=dict)
     repository_name: Optional[str] = attr.ib(default=None)
+    repository_location: Optional[str] = attr.ib(default=None)
 
 
 @attr.s
 class OpenLineageCursor:
     last_storage_id: int = attr.ib()
     running_pipelines: Dict[str, RunningPipeline] = attr.ib(factory=dict)
-    run_updated_after: datetime = attr.ib(default=datetime.now())
+    run_updated_after: float = attr.ib(default=datetime.now().timestamp())
 
     def to_json(self):
-        dict_repr = attr.asdict(self)
-        dict_repr["run_updated_after"] = datetime.timestamp(
-            dict_repr["run_updated_after"]
-        )
-        return json.dumps(dict_repr)
+        return json.dumps(attr.asdict(self))
 
     @classmethod
     def from_json(cls, json_str: str):
-        attrs = json.loads(json_str)
-        try:
-            attrs["run_updated_after"] = datetime.fromtimestamp(
-                attrs["run_updated_after"]
-            )
-        except KeyError:
-            attrs["run_updated_after"] = datetime.now()
-        return cls(**attrs)
+        return cattr.structure(json.loads(json_str), cls)
