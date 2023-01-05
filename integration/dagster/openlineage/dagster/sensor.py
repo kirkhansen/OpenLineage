@@ -38,6 +38,7 @@ def openlineage_sensor(
     minimum_interval_seconds: Optional[int] = DEFAULT_SENSOR_DAEMON_INTERVAL,
     record_filter_limit: Optional[int] = 1000,
     after_storage_id: int = 0,
+    dagit_graphql_uri: str = "http://localhost:3000/graphql",
 ) -> SensorDefinition:
     """Wrapper to parameterize sensor configurations and return sensor definition.
     :param name: sensor name
@@ -122,6 +123,7 @@ def openlineage_sensor(
                             repository_name,
                             repository_location,
                             asset_key,
+                            dagit_graphql_uri,
                         )
                 except Exception:
                     log.exception("Sensor run failed with error")
@@ -194,7 +196,8 @@ def _handle_step_event(
     step_key: str,
     repository_name: str,
     repository_location: str,
-    asset_key,
+    asset_key: AssetKey,
+    dagit_graphql_uri: str,
 ):
     """Handles step events that are of type STEP_START, STEP_SUCCESS, and STEP_FAILURE.
     Assumes event type is always in the order of STEP_START
@@ -219,7 +222,7 @@ def _handle_step_event(
     # Add in datasets inputs and outputs to the step
     # TODO: figure out a better place for this query; we shouldn't run this for every STEP job
     # this could probably move out so we can save some graphql calls
-    asset_node_lookup = get_asset_record_dependencies(repository_name=repository_name, repository_location=repository_location, pipeline_name=pipeline_name)
+    asset_node_lookup = get_asset_record_dependencies(repository_name=repository_name, repository_location=repository_location, pipeline_name=pipeline_name, graphql_uri=dagit_graphql_uri)
     dependencies = asset_node_lookup.get(asset_key, {})
     running_step = running_steps.get(
             step_key,

@@ -19,11 +19,12 @@ requirements = [
     "cattrs",
     "protobuf<=3.20.0",
     f"dagster>={DAGSTER_VERSION}",
-    # f"openlineage-python=={__version__}",
+    "openlineage-python",
 ]
 
 extras_require = {
     "tests": ["pytest", "pytest-cov", "flake8", "mypy>=0.9.6"],
+    "kafka": ["kafka-python"],
 }
 
 extras_require["dev"] = extras_require["tests"]

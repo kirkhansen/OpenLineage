@@ -21,8 +21,6 @@ from openlineage.client.run import Dataset
 
 NOMINAL_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
-# TODO: should be able to glean this based on environment/DagsterInstance context
-GRAPHQL_HOST = "http://localhost:3001/graphql"
 
 ASSET_NODE_QUERY = """
 query AssetNodes($pipelineSelector: PipelineSelector!) {
@@ -103,13 +101,13 @@ def _get_table_schema_facet(node_response: dict) -> dict:
     return {}
 
 
-def get_asset_record_dependencies(repository_name: str, repository_location: str, pipeline_name: str,) -> dict:
+def get_asset_record_dependencies(repository_name: str, repository_location: str, pipeline_name: str, graphql_uri: str) -> dict:
     """
     Hits graphql endpoint to fetch the asset records and their dependencies to
     add on to the dagster events for dataset definitions with ins/outs.
     """
     query_params = {"pipelineSelector": {"pipelineName": pipeline_name, "repositoryName": repository_name, "repositoryLocationName": repository_location}}
-    assets_nodes_response = requests.post(GRAPHQL_HOST, json={"query": ASSET_NODE_QUERY, "variables": query_params}).json()
+    assets_nodes_response = requests.post(graphql_uri, json={"query": ASSET_NODE_QUERY, "variables": query_params}).json()
     asset_nodes = assets_nodes_response["data"]["assetNodes"]
     asset_node_lookup = {
             AssetKey(asset_node["assetKey"]["path"]): {

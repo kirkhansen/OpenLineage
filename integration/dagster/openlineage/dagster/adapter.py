@@ -13,6 +13,7 @@ from openlineage.client.run import RunEvent, RunState, Run, Job
 
 from openlineage.dagster import __version__ as OPENLINEAGE_DAGSTER_VERSION
 from openlineage.dagster.utils import make_step_job_name, to_utc_iso_8601
+from openlineage.dagster.transport import KafkaTransport, KafkaConfig
 
 _DEFAULT_NAMESPACE_NAME = os.getenv("OPENLINEAGE_NAMESPACE", DEFAULT_NAMESPACE_NAME)
 _PRODUCER = (
@@ -31,7 +32,22 @@ class OpenLineageAdapter:
     """
 
     def __init__(self):
-        self._client = OpenLineageClient.from_environment()
+        # TODO: make these things configurable
+        # default config methods of the yaml file are hard to set due to
+        # the way dagster fires off jobs. have to pass the right env var pointing to the
+        # right openlineage.conf file. We shouldn't need many config options, so maybe just
+        # expose this stuff via env vars, or additional sensor def config
+        config = {"bootstrap_servers": "0.0.0.0:9093"}
+        log.info(f"Configuring openlineage client with Kafka Transport")
+        log.info(f"Config : {str(config)}")
+        self._client = OpenLineageClient(
+            transport=KafkaTransport(
+                KafkaConfig(
+                    topic="openlineage.events",
+                    producer_config=config,
+                )
+            )
+        )
 
 
     def start_pipeline(
