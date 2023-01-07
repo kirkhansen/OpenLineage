@@ -222,7 +222,7 @@ def _handle_step_event(
     # Add in datasets inputs and outputs to the step
     # TODO: figure out a better place for this query; we shouldn't run this for every STEP job
     # this could probably move out so we can save some graphql calls
-    asset_node_lookup = get_asset_record_dependencies(repository_name=repository_name, repository_location=repository_location, pipeline_name=pipeline_name, graphql_uri=dagit_graphql_uri)
+    asset_node_lookup = get_asset_record_dependencies(pipeline_run_id=pipeline_run_id, graphql_uri=dagit_graphql_uri)
     dependencies = asset_node_lookup.get(asset_key, {})
     running_step = running_steps.get(
             step_key,

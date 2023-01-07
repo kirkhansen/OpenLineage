@@ -5,6 +5,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, Optional
+from urllib.parse import urlparse
 
 import requests
 
@@ -15,55 +16,166 @@ from dagster import (
     EventRecordsFilter,
 )
 from dagster._core.events import DagsterEventType  # type: ignore
-from openlineage.client.facet import SchemaDatasetFacet, SchemaField
+from openlineage.client.facet import DocumentationDatasetFacet, SchemaDatasetFacet, SchemaField
 from openlineage.client.run import Dataset
 
 
 NOMINAL_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
-ASSET_NODE_QUERY = """
-query AssetNodes($pipelineSelector: PipelineSelector!) {
-  assetNodes(pipeline: $pipelineSelector) {
-    id
-    ...assetPath
-    type {
-      name
-      displayName
-      description
-      metadataEntries {
-        ... on TableSchemaMetadataEntry {
-          label
-          schema {
-            columns {
-              name
-              type
-              description
-              constraints {
-                nullable
-                unique
-              }
-            }
+PIPELINE_ASSET_QUERY = """
+query PipelineAssetPaths($runId: String!) {
+  pipelineRunsOrError(filter: {runIds: [$runId]}) {
+    ... on Runs {
+      results {
+        assets {
+          key {
+            path
           }
         }
-      }
-    }
-    dependedBy {
-      asset {
-        ...assetPath
-      }
-    }
-    dependencies {
-      asset {
-        ...assetPath
       }
     }
   }
 }
 
-fragment assetPath on AssetNode {
+"""
+
+
+ASSET_INFO_QUERY = """
+query AssetByKey($assetPath: [String!]!) {
+  assetOrError(assetKey: { path: $assetPath }) {
+    ... on Asset {
+      definition {
+        description
+        metadataEntries {
+          ...MetadataEntryFragment
+        }
+        dependencies {
+          asset {
+            ...AssetNodePathFragment
+            assetMaterializations {
+              metadataEntries {
+                ...MetadataEntryFragment
+              }
+            }
+          }
+        }
+        type {
+          description
+          metadataEntries {
+            ...MetadataEntryFragment
+          }
+        }
+        assetMaterializations {
+          metadataEntries {
+            ...MetadataEntryFragment
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment AssetNodePathFragment on AssetNode {
   assetKey {
     path
+  }
+}
+
+fragment MetadataEntryFragment on MetadataEntry {
+  __typename
+  label
+  description
+  ... on PathMetadataEntry {
+    path
+    __typename
+  }
+  ... on NotebookMetadataEntry {
+    path
+    __typename
+  }
+  ... on JsonMetadataEntry {
+    jsonString
+    __typename
+  }
+  ... on UrlMetadataEntry {
+    url
+    __typename
+  }
+  ... on TextMetadataEntry {
+    text
+    __typename
+  }
+  ... on MarkdownMetadataEntry {
+    mdStr
+    __typename
+  }
+  ... on PythonArtifactMetadataEntry {
+    module
+    name
+    __typename
+  }
+  ... on FloatMetadataEntry {
+    floatValue
+    __typename
+  }
+  ... on IntMetadataEntry {
+    intValue
+    intRepr
+    __typename
+  }
+  ... on BoolMetadataEntry {
+    boolValue
+    __typename
+  }
+  ... on PipelineRunMetadataEntry {
+    runId
+    __typename
+  }
+  ... on AssetMetadataEntry {
+    assetKey {
+      path
+      __typename
+    }
+    __typename
+  }
+  ... on TableMetadataEntry {
+    table {
+      records
+      schema {
+        ...TableSchemaFragment
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+  ... on TableSchemaMetadataEntry {
+    schema {
+      ...TableSchemaFragment
+      __typename
+    }
+    __typename
+  }
+}
+
+fragment TableSchemaFragment on TableSchema {
+  __typename
+  columns {
+    name
+    description
+    type
+    constraints {
+      nullable
+      unique
+      other
+      __typename
+    }
+    __typename
+  }
+  constraints {
+    other
+    __typename
   }
 }
 """
@@ -101,22 +213,48 @@ def _get_table_schema_facet(node_response: dict) -> dict:
     return {}
 
 
-def get_asset_record_dependencies(repository_name: str, repository_location: str, pipeline_name: str, graphql_uri: str) -> dict:
+def _get_documentation_facet(node_response: dict) -> dict:
+    description = node_response["description"]
+    documentation_facet= DocumentationDatasetFacet(description=description)
+    return {"documentation": documentation_facet}
+
+
+def _get_namespace_and_name_from_materialization_metadata(asset: dict) -> dict:
+    if asset["assetMaterializations"]:
+        latest_materialization = asset["assetMaterializations"][0]
+        for metadata in latest_materialization["metadataEntries"]:
+            # TODO verify other io handler types to see what the metadata
+            # entries look like for the storae loaction. in the case of s3, this shows
+            # up as a path object with a uri label, and a description
+            if metadata["__typename"] == "PathMetadataEntry":
+                uri = urlparse(metadata["path"])
+                return {"namespace": f"{uri.scheme}://{uri.netloc}",
+                        "name": uri.path}
+    return {}
+
+
+
+def get_asset_record_dependencies(pipeline_run_id: str, graphql_uri: str) -> dict:
     """
     Hits graphql endpoint to fetch the asset records and their dependencies to
     add on to the dagster events for dataset definitions with ins/outs.
     """
-    query_params = {"pipelineSelector": {"pipelineName": pipeline_name, "repositoryName": repository_name, "repositoryLocationName": repository_location}}
-    assets_nodes_response = requests.post(graphql_uri, json={"query": ASSET_NODE_QUERY, "variables": query_params}).json()
-    asset_nodes = assets_nodes_response["data"]["assetNodes"]
-    asset_node_lookup = {
-            AssetKey(asset_node["assetKey"]["path"]): {
-                "input_datasets": [Dataset(namespace=repository_name, name=AssetKey(dep["asset"]["assetKey"]["path"]).to_python_identifier()) for dep in asset_node["dependencies"]],
-                "output_datasets": [Dataset(namespace=repository_name, name=AssetKey(asset_node["assetKey"]["path"]).to_python_identifier(), facets=_get_table_schema_facet(asset_node))]
-            }
-        for asset_node in asset_nodes
-    }
-    return asset_node_lookup
+    pipeline_assets_response = requests.post(graphql_uri, json={"query": PIPELINE_ASSET_QUERY, "variables": {"runId": pipeline_run_id}}).json()
+    asset_dependencies_lookup = {}
+
+    for asset in pipeline_assets_response["data"]["pipelineRunsOrError"]["results"][0]["assets"]:
+        asset_key = AssetKey.from_graphql_input(asset["key"])
+        asset_info_response = requests.post(graphql_uri, json={"query": ASSET_INFO_QUERY, "variables": {"assetPath": asset_key.path}}).json()
+        asset_info = asset_info_response["data"]["assetOrError"]["definition"]
+        input_datasets = [Dataset(**_get_namespace_and_name_from_materialization_metadata(dep["asset"])) for dep in asset_info["dependencies"]]
+        output_datasets = [
+            Dataset(
+                **_get_namespace_and_name_from_materialization_metadata(asset_info),
+                facets=_get_table_schema_facet(asset_info) | _get_documentation_facet(asset_info))
+        ]
+
+        asset_dependencies_lookup[asset_key] = {"input_datasets": input_datasets, "output_datasets": output_datasets}
+    return asset_dependencies_lookup
 
 
 def get_event_log_records(
