@@ -1,6 +1,7 @@
 # Copyright 2018-2023 contributors to the OpenLineage project
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,7 +17,7 @@ from dagster import (
     EventRecordsFilter,
 )
 from dagster._core.events import DagsterEventType  # type: ignore
-from openlineage.client.facet import DocumentationDatasetFacet, SchemaDatasetFacet, SchemaField
+from openlineage.client.facet import DocumentationDatasetFacet, SchemaDatasetFacet, SchemaField, OwnershipDatasetFacet
 from openlineage.client.run import Dataset
 
 
@@ -199,24 +200,35 @@ def make_step_job_name(pipeline_name: str, step_key: str) -> str:
     return f"{pipeline_name}.{step_key}"
 
 
-def _get_table_schema_facet(node_response: dict) -> dict:
+def _get_table_schema_facet(asset: dict) -> dict:
     """build up a SchemaDatasetFacet if a TableSchemaMetadataEntry is present on the asset"""
-
-    # should be one per node here
-    for metadata in node_response["type"]["metadataEntries"]:
-        if metadata["label"] == "schema":
-            schema = metadata["schema"]
-            schema["description"] = node_response["type"]["description"]
-            schema_fields = [SchemaField(name=column["name"], type=column["type"], description=column["description"]) for column in schema["columns"]]
-            schema_facet = SchemaDatasetFacet(fields=schema_fields)
-            return {"schema": schema_facet}
+    if asset["assetMaterializations"]:
+        latest_materialization = asset["assetMaterializations"][0]
+        for metadata in latest_materialization["metadataEntries"]:
+            if metadata["label"] == "schema":
+                schema = metadata["schema"]
+                schema["description"] = metadata["type"]["description"]
+                schema_fields = [SchemaField(name=column["name"], type=column["type"], description=column["description"]) for column in schema["columns"]]
+                schema_facet = SchemaDatasetFacet(fields=schema_fields)
+                return {"schema": schema_facet}
     return {}
 
 
-def _get_documentation_facet(node_response: dict) -> dict:
-    description = node_response["description"]
+def _get_documentation_facet(asset: dict) -> dict:
+    description = asset["description"]
     documentation_facet= DocumentationDatasetFacet(description=description)
     return {"documentation": documentation_facet}
+
+
+def _get_owner_facet(asset: dict) -> dict:
+    """build up a OwnershipFacet if a TableSchemaMetadataEntry is present on the asset"""
+    # should be one owners metadata entry per asset, or none.
+    for metadata in asset["metadataEntries"]:
+        if metadata["__typename"] == "JsonMetadataEntry" and metadata["label"] == "owners":
+            owners = json.loads(metadata["jsonString"])["owners"]
+            ownership_facet = OwnershipDatasetFacet(owners)
+            return {"owners": ownership_facet}
+    return {}
 
 
 def _get_namespace_and_name_from_materialization_metadata(asset: dict) -> dict:
@@ -250,7 +262,7 @@ def get_asset_record_dependencies(pipeline_run_id: str, graphql_uri: str) -> dic
         output_datasets = [
             Dataset(
                 **_get_namespace_and_name_from_materialization_metadata(asset_info),
-                facets=_get_table_schema_facet(asset_info) | _get_documentation_facet(asset_info))
+                facets=_get_table_schema_facet(asset_info) | _get_documentation_facet(asset_info) | _get_owner_facet(asset_info))
         ]
 
         asset_dependencies_lookup[asset_key] = {"input_datasets": input_datasets, "output_datasets": output_datasets}
