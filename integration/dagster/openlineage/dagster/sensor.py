@@ -75,6 +75,7 @@ def openlineage_sensor(
 
         raised_exception = None
 
+        print(event_log_records)
 
         for record in event_log_records:
             entry = record.event_log_entry
@@ -88,7 +89,7 @@ def openlineage_sensor(
                     dagster_event_type = dagster_event.event_type
 
                     # Evidently can be None, but I'm not sure what that means to have a None step key
-                    step_key = dagster_event.step_handle.to_key() if dagster_event.step_handle else ""
+                    step_key = dagster_event.step_handle.to_key() if dagster_event.step_handle else dagster_event.step_key
                     asset_key = None
                     if dagster_event.step_handle and dagster_event.step_handle.solid_handle.path:
                         asset_key = dagster_event.asset_key or AssetKey(dagster_event.step_handle.solid_handle.path)
@@ -163,6 +164,7 @@ def _handle_pipeline_event(
     :param repository_name: Dagster repository name
     :return:
     """
+
     if dagster_event_type == DagsterEventType.RUN_START:
         _ADAPTER.start_pipeline(
             pipeline_name, pipeline_run_id, timestamp, repository_name
@@ -224,14 +226,15 @@ def _handle_step_event(
     # this could probably move out so we can save some graphql calls
     asset_node_lookup = get_asset_record_dependencies(pipeline_run_id=pipeline_run_id, graphql_uri=dagit_graphql_uri)
     dependencies = asset_node_lookup.get(asset_key, {})
+
     running_step = running_steps.get(
             step_key,
             RunningStep(
                 make_step_run_id(),
-                **dependencies,
-    ))
+                **dependencies
+            )
+    )
     step_run_id = running_step.step_run_id
-
     if dagster_event_type == DagsterEventType.STEP_START:
         _ADAPTER.start_step(
             pipeline_name,

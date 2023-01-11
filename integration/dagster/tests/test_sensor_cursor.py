@@ -125,15 +125,14 @@ def test_cursor_update_with_successful_run(
         )
 
 
-@patch("openlineage.dagster.cursor.datetime")
+@patch("openlineage.dagster.utils.requests")
 @patch("openlineage.dagster.sensor._ADAPTER")
 @patch("openlineage.dagster.sensor.make_step_run_id")
 @patch("openlineage.dagster.sensor.get_event_log_records")
 def test_cursor_update_with_failing_run(
-    mock_event_log_records, mock_step_run_id, mock_adapter, mock_datetime
+    mock_event_log_records, mock_step_run_id, mock_adapter, mock_requests
 ):
     from openlineage.dagster.sensor import openlineage_sensor  # noqa: E402
-    dummy_update_after = 1.0
 
     with instance_for_test() as instance:
         ol_sensor_def = openlineage_sensor(record_filter_limit=1)
@@ -147,12 +146,11 @@ def test_cursor_update_with_failing_run(
         ]
         context = build_sensor_context(instance=instance, cursor=None)
         ol_sensor_def.evaluate_tick(context)
-        assert OpenLineageCursor.from_json(context.cursor) == OpenLineageCursor(
-            last_storage_id=1,
-            running_pipelines={
-                pipeline_run_id: RunningPipeline(running_steps={}, repository_name=None)
-            },
-        )
+        cursor = OpenLineageCursor.from_json(context.cursor)
+        assert cursor.last_storage_id == 1
+        assert cursor.running_pipelines == {
+            pipeline_run_id: RunningPipeline(running_steps={}, repository_name=None)
+        }
 
         # 2. step start
         step_run_id = str(uuid.uuid4())
@@ -167,20 +165,19 @@ def test_cursor_update_with_failing_run(
             )
         ]
         ol_sensor_def.evaluate_tick(context)
-        assert OpenLineageCursor.from_json(context.cursor) == OpenLineageCursor(
-            last_storage_id=2,
-            running_pipelines={
-                pipeline_run_id: RunningPipeline(
-                    running_steps={
-                        step_key: RunningStep(
-                            step_run_id=step_run_id,
-                            input_datasets=[],
-                            output_datasets=[],
+        cursor = OpenLineageCursor.from_json(context.cursor)
+        assert cursor.last_storage_id == 2
+        assert cursor.running_pipelines == {
+            pipeline_run_id: RunningPipeline(
+                running_steps={
+                    step_key: RunningStep(
+                        step_run_id=step_run_id,
+                        input_datasets=[],
+                        output_datasets=[],
                         )
                     },
                 )
-            },
-        )
+            }
 
         # 3. step fail
         mock_event_log_records.return_value = [
@@ -192,12 +189,11 @@ def test_cursor_update_with_failing_run(
             )
         ]
         ol_sensor_def.evaluate_tick(context)
-        assert OpenLineageCursor.from_json(context.cursor) == OpenLineageCursor(
-            last_storage_id=3,
-            running_pipelines={
+        cursor = OpenLineageCursor.from_json(context.cursor)
+        assert cursor.last_storage_id == 3
+        assert cursor.running_pipelines=={
                 pipeline_run_id: RunningPipeline(running_steps={}, repository_name=None)
-            },
-        )
+            }
 
         # 4. pipeline fail
         mock_event_log_records.return_value = [
@@ -208,9 +204,9 @@ def test_cursor_update_with_failing_run(
             )
         ]
         ol_sensor_def.evaluate_tick(context)
-        assert OpenLineageCursor.from_json(context.cursor) == OpenLineageCursor(
-            last_storage_id=4, running_pipelines={}
-        )
+        cursor = OpenLineageCursor.from_json(context.cursor)
+        assert cursor.last_storage_id == 4
+        assert cursor.running_pipelines == {}
 
 
 @patch("openlineage.dagster.utils.requests")
