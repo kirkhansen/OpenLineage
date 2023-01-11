@@ -13,7 +13,6 @@ from openlineage.client.run import RunEvent, RunState, Run, Job
 
 from openlineage.dagster import __version__ as OPENLINEAGE_DAGSTER_VERSION
 from openlineage.dagster.utils import make_step_job_name, to_utc_iso_8601
-from openlineage.dagster.transport import KafkaTransport, KafkaConfig
 
 _DEFAULT_NAMESPACE_NAME = os.getenv("OPENLINEAGE_NAMESPACE", DEFAULT_NAMESPACE_NAME)
 _PRODUCER = (
