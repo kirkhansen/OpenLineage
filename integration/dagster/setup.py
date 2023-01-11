@@ -24,7 +24,7 @@ requirements = [
 
 extras_require = {
     "tests": ["pytest", "pytest-cov", "flake8", "mypy>=0.9.6"],
-    "kafka": ["kafka-python"],
+    "kafka": ["confluent-kafka"],
 }
 
 extras_require["dev"] = extras_require["tests"]

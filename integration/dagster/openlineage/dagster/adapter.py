@@ -32,22 +32,7 @@ class OpenLineageAdapter:
     """
 
     def __init__(self):
-        # TODO: make these things configurable
-        # default config methods of the yaml file are hard to set due to
-        # the way dagster fires off jobs. have to pass the right env var pointing to the
-        # right openlineage.conf file. We shouldn't need many config options, so maybe just
-        # expose this stuff via env vars, or additional sensor def config
-        config = {"bootstrap_servers": "0.0.0.0:9093"}
-        log.info(f"Configuring openlineage client with Kafka Transport")
-        log.info(f"Config : {str(config)}")
-        self._client = OpenLineageClient(
-            transport=KafkaTransport(
-                KafkaConfig(
-                    topic="openlineage.events",
-                    producer_config=config,
-                )
-            )
-        )
+        self._client = OpenLineageClient.from_environment()
 
 
     def start_pipeline(
