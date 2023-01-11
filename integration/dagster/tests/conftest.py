@@ -10,16 +10,10 @@ from dagster import (
     EventLogRecord,
     EventLogEntry,
     DagsterEvent,
-    PipelineRun,
 )
-from dagster.core.code_pointer import FileCodePointer
-from dagster.core.definitions.reconstructable import ReconstructableRepository
-from dagster.core.execution.plan.objects import StepSuccessData, StepFailureData
-from dagster.core.host_representation import (
-    ExternalPipelineOrigin,
-    ExternalRepositoryOrigin,
-    InProcessRepositoryLocationOrigin,
-)
+from dagster._core.code_pointer import FileCodePointer
+from dagster._core.events import PIPELINE_EVENTS
+from dagster._core.execution.plan.objects import StepSuccessData, StepFailureData
 from dagster.version import __version__ as DAGSTER_VERSION
 from pkg_resources import parse_version
 
@@ -90,6 +84,7 @@ def _make_dagster_event(
 def make_pipeline_run_with_external_pipeline_origin(
     repository_name: str,
 ):
+    PIPELINE_EVENTS
     return PipelineRun(
         pipeline_name="test",
         execution_plan_snapshot_id="123",

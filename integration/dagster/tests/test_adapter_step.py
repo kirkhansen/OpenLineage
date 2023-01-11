@@ -51,8 +51,8 @@ def test_start_pipeline(mock_client, mock_to_utc_iso_8601):
                 facets={},
             ),
             producer=PRODUCER,
-            inputs=[],
-            outputs=[],
+            inputs=None,
+            outputs=None,
         )
     )
 
@@ -97,8 +97,8 @@ def test_complete_step(mock_client, mock_to_utc_iso_8601):
                 facets={},
             ),
             producer=PRODUCER,
-            inputs=[],
-            outputs=[],
+            inputs=None,
+            outputs=None,
         )
     )
 
@@ -141,7 +141,7 @@ def test_fail_step(mock_client, mock_to_utc_iso_8601):
                 facets={},
             ),
             producer=PRODUCER,
-            inputs=[],
-            outputs=[],
+            inputs=None,
+            outputs=None,
         )
     )

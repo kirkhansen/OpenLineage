@@ -10,12 +10,12 @@ from unittest.mock import patch, call
 from dagster import (
     job,
     op,
-    execute_pipeline,
-    reconstructable,
     build_sensor_context,
     DagsterEventType,
 )  # noqa: E501
-from dagster.core.test_utils import instance_for_test
+from dagster._core.execution.api import execute_pipeline
+from dagster._core.definitions.reconstruct import reconstructable
+from dagster._core.test_utils import instance_for_test
 
 from openlineage.dagster.sensor import openlineage_sensor
 from .conftest import make_test_event_log_record

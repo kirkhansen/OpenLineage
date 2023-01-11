@@ -293,7 +293,7 @@ def _update_cursor(
         ).to_json()
     )
 
-EVENTS_TO_SENSE = {
+EVENTS_TO_SENSE = [
     DagsterEventType.STEP_INPUT,
     DagsterEventType.STEP_START,
     DagsterEventType.STEP_SUCCESS,
@@ -302,4 +302,4 @@ EVENTS_TO_SENSE = {
     DagsterEventType.RUN_SUCCESS,
     DagsterEventType.RUN_FAILURE,
     DagsterEventType.RUN_CANCELED,
-}
+]

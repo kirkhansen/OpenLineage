@@ -271,7 +271,7 @@ def get_asset_record_dependencies(pipeline_run_id: str, graphql_uri: str) -> dic
 
 def get_event_log_records(
     instance: DagsterInstance,
-    event_types: set[DagsterEventType],
+    event_types: list[DagsterEventType],
     run_updated_after: float,
     record_filter_limit: Optional[int] = None,
 ) -> Iterable[EventLogRecord]:
