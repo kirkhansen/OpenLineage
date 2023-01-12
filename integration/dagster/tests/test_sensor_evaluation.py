@@ -18,6 +18,7 @@ from dagster._core.definitions.reconstruct import reconstructable
 from dagster._core.test_utils import instance_for_test
 
 from openlineage.dagster.sensor import openlineage_sensor
+from openlineage.dagster.utils import Repository
 from .conftest import make_test_event_log_record
 
 
@@ -30,11 +31,12 @@ def a_job():
     an_op()
 
 
-@patch("openlineage.dagster.sensor.get_repository_name")
+@patch("openlineage.dagster.utils.requests")
+@patch("openlineage.dagster.sensor.get_repository")
 @patch("openlineage.dagster.sensor.make_step_run_id")
 @patch("openlineage.dagster.sensor._ADAPTER")
 def test_sensor_with_complete_job_run_and_repository(
-    mock_adapter, mock_step_run_id, mock_get_repository_name
+    mock_adapter, mock_step_run_id, mock_get_repository, mock_requests
 ):  # noqa: E501
     with tempfile.TemporaryDirectory() as temp_dir:
         with instance_for_test(
@@ -52,7 +54,7 @@ def test_sensor_with_complete_job_run_and_repository(
             step_key = "an_op"
             step_run_id = str(uuid.uuid4())
             mock_step_run_id.return_value = step_run_id
-            mock_get_repository_name.return_value = repository_name
+            mock_get_repository.return_value = Repository(name=repository_name, location="test")
 
             result = execute_pipeline(
                 pipeline=reconstructable(a_job), instance=instance, raise_on_error=False
@@ -80,6 +82,8 @@ def test_sensor_with_complete_job_run_and_repository(
                         step_run_id,
                         step_key,
                         repository_name,
+                        [],
+                        [],
                     ),  # noqa: E501
                     call.complete_step(
                         pipeline_name,
@@ -88,6 +92,8 @@ def test_sensor_with_complete_job_run_and_repository(
                         step_run_id,
                         step_key,
                         repository_name,
+                        [],
+                        [],
                     ),  # noqa: E501
                     call.complete_pipeline(
                         pipeline_name, pipeline_run_id, mock.ANY, repository_name
@@ -184,10 +190,11 @@ def test_sensor_cancel_pipeline(mock_event_log_records, mock_adapter):
         )
 
 
+@patch("openlineage.dagster.utils.requests")
 @patch("openlineage.dagster.sensor.make_step_run_id")
 @patch("openlineage.dagster.sensor._ADAPTER")
 @patch("openlineage.dagster.sensor.get_event_log_records")
-def test_sensor_start_step(mock_event_log_records, mock_adapter, mock_new_step_run_id):
+def test_sensor_start_step(mock_event_log_records, mock_adapter, mock_new_step_run_id, mock_requests):
     with instance_for_test() as instance:
         pipeline_name = "a_job"
         pipeline_run_id = str(uuid.uuid4())
@@ -217,16 +224,19 @@ def test_sensor_start_step(mock_event_log_records, mock_adapter, mock_new_step_r
                     step_run_id,
                     step_key,
                     None,
+                    [],
+                    [],
                 )
             ]
         )
 
 
+@patch("openlineage.dagster.utils.requests")
 @patch("openlineage.dagster.sensor.make_step_run_id")
 @patch("openlineage.dagster.sensor._ADAPTER")
 @patch("openlineage.dagster.sensor.get_event_log_records")
 def test_sensor_complete_step(
-    mock_event_log_records, mock_adapter, mock_new_step_run_id
+    mock_event_log_records, mock_adapter, mock_new_step_run_id, mock_requests
 ):
     with instance_for_test() as instance:
         pipeline_name = "a_job"
@@ -257,15 +267,18 @@ def test_sensor_complete_step(
                     step_run_id,
                     step_key,
                     None,
+                    [],
+                    [],
                 )
             ]
         )
 
 
+@patch("openlineage.dagster.utils.requests")
 @patch("openlineage.dagster.sensor.make_step_run_id")
 @patch("openlineage.dagster.sensor._ADAPTER")
 @patch("openlineage.dagster.sensor.get_event_log_records")
-def test_sensor_fail_step(mock_event_log_records, mock_adapter, mock_new_step_run_id):
+def test_sensor_fail_step(mock_event_log_records, mock_adapter, mock_new_step_run_id, mock_requests):
     with instance_for_test() as instance:
         pipeline_name = "a_job"
         pipeline_run_id = str(uuid.uuid4())
@@ -295,6 +308,8 @@ def test_sensor_fail_step(mock_event_log_records, mock_adapter, mock_new_step_ru
                     step_run_id,
                     step_key,
                     None,
+                    [],
+                    [],
                 )
             ]
         )

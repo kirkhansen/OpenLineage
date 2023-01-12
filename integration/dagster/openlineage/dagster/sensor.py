@@ -75,8 +75,6 @@ def openlineage_sensor(
 
         raised_exception = None
 
-        print(event_log_records)
-
         for record in event_log_records:
             entry = record.event_log_entry
             if entry.is_dagster_event:
@@ -164,7 +162,6 @@ def _handle_pipeline_event(
     :param repository_name: Dagster repository name
     :return:
     """
-
     if dagster_event_type == DagsterEventType.RUN_START:
         _ADAPTER.start_pipeline(
             pipeline_name, pipeline_run_id, timestamp, repository_name
@@ -296,12 +293,12 @@ def _update_cursor(
         ).to_json()
     )
 
+# Order matters here, at least for now
 EVENTS_TO_SENSE = [
-    DagsterEventType.STEP_INPUT,
+    DagsterEventType.RUN_START,
     DagsterEventType.STEP_START,
     DagsterEventType.STEP_SUCCESS,
     DagsterEventType.STEP_FAILURE,
-    DagsterEventType.RUN_START,
     DagsterEventType.RUN_SUCCESS,
     DagsterEventType.RUN_FAILURE,
     DagsterEventType.RUN_CANCELED,
